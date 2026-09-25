@@ -1,0 +1,727 @@
+<style>
+    .midautumn-container {
+        position: relative;
+        width: 100%;
+        height: 600px;
+        overflow: hidden;
+        background-color: #05070c;
+        font-family: "STKaiti", "KaiTi", "Songti SC", "SimSun", serif;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    /* 卷轴外层容器 */
+    .ma-scroll-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #05070c;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    /* 画布主舞台：初始宽度为0，从中间向两边展开 */
+    .ma-stage {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        clip-path: inset(0 50% 0 50%);
+        transition: clip-path 2.2s cubic-bezier(0.77, 0, 0.175, 1);
+    }
+    .ma-scroll-container.opened .ma-stage {
+        clip-path: inset(0 0% 0 0%);
+    }
+
+    /* 卷轴左右两根木质轴杆 */
+    .ma-scroll-rod {
+        position: absolute;
+        top: 0;
+        width: 20px;
+        height: 100%;
+        background: linear-gradient(90deg, #2a180c, #523117 50%, #211209);
+        box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        z-index: 10;
+        transition: transform 2.2s cubic-bezier(0.77, 0, 0.175, 1);
+    }
+    .ma-scroll-rod.left {
+        left: calc(50% - 10px);
+        transform: translateX(0);
+    }
+    .ma-scroll-container.opened .ma-scroll-rod.left {
+        transform: translateX(calc(-50vw + 10px));
+    }
+    .ma-scroll-rod.right {
+        left: calc(50% - 10px);
+        transform: translateX(0);
+    }
+    .ma-scroll-container.opened .ma-scroll-rod.right {
+        transform: translateX(calc(50vw - 10px));
+    }
+
+    /* 轴杆两端的玉质圆头装饰 */
+    .ma-scroll-rod::before, .ma-scroll-rod::after {
+        content: '';
+        position: absolute;
+        left: -3px;
+        width: 26px;
+        height: 38px;
+        background: linear-gradient(90deg, #d4af37, #fff0bc 50%, #b8860b);
+        border-radius: 50%;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    }
+    .ma-scroll-rod::before { top: -8px; }
+    .ma-scroll-rod::after { bottom: -8px; }
+
+    #midautumn-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+    }
+
+    .ma-ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        padding: 45px 20px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 1s ease 1.5s;
+    }
+    .ma-scroll-container.opened .ma-ui-layer {
+        opacity: 1;
+    }
+
+    /* 右下角书法印章水印样式 */
+    .ma-watermark {
+        position: absolute;
+        bottom: 25px;
+        right: 35px;
+        font-size: 0.9rem;
+        color: #d4af37;
+        letter-spacing: 0.3em;
+        font-family: "STKaiti", "KaiTi", "Songti SC", serif;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+        border: 1px solid rgba(212, 175, 55, 0.35);
+        padding: 5px 10px;
+        background: rgba(13, 18, 27, 0.5);
+        border-radius: 4px;
+        z-index: 4;
+        opacity: 0;
+        transition: opacity 1s ease 1.5s;
+    }
+    .ma-scroll-container.opened .ma-watermark {
+        opacity: 1;
+    }
+
+    .ma-blessing {
+        text-align: center;
+        transform: translateY(-10px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .ma-title {
+        font-size: 2.8rem;
+        color: #f5ebd0;
+        letter-spacing: 0.8em;
+        margin-left: 0.8em;
+        margin-bottom: 8px;
+        text-shadow: 0 0 40px rgba(245, 235, 208, 0.4);
+        font-family: "STKaiti", "KaiTi", "Songti SC", serif;
+        font-weight: bold;
+    }
+    .ma-subtitle {
+        font-size: 0.95rem;
+        color: #b3c2d4;
+        letter-spacing: 0.35em;
+        margin-left: 0.35em;
+        text-shadow: 0 0 12px rgba(179, 194, 212, 0.3);
+        font-family: "STKaiti", "KaiTi", "Songti SC", serif;
+    }
+    .ma-footer {
+        font-size: 0.8rem;
+        color: #6a7c96;
+        letter-spacing: 0.25em;
+        font-family: "STKaiti", "KaiTi", "Songti SC", serif;
+    }
+    .ma-tip {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.85rem;
+        color: #d4af37;
+        letter-spacing: 0.25em;
+        animation: ma-pulse 2.5s infinite;
+        z-index: 3;
+        cursor: pointer;
+        text-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
+        opacity: 0;
+        transition: opacity 1s ease 2s;
+    }
+    .ma-scroll-container.opened .ma-tip {
+        opacity: 1;
+    }
+    @keyframes ma-pulse {
+        0% { opacity: 0.3; }
+        50% { opacity: 0.9; }
+        100% { opacity: 0.3; }
+    }
+</style>
+
+<div class="midautumn-container">
+    <div class="ma-scroll-container" id="maScrollContainer">
+        <!-- 画布与UI舞台 -->
+        <div class="ma-stage">
+            <canvas id="midautumn-canvas"></canvas>
+            <div class="ma-watermark">李万鑫出品</div>
+            <div class="ma-ui-layer">
+                <div class="ma-blessing">
+                    <div class="ma-title">团圆</div>
+                    <div class="ma-subtitle">花好月圆 · 中秋快乐</div>
+                </div>
+                <div class="ma-footer">愿此夕共 岁岁常安</div>
+            </div>
+        </div>
+        <!-- 左右卷轴轴杆 -->
+        <div class="ma-scroll-rod left"></div>
+        <div class="ma-scroll-rod right"></div>
+
+        <div class="ma-tip" id="maTip">轻触夜空 随机绽放烟花或月饼</div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const container = document.getElementById('maScrollContainer');
+    const canvas = document.getElementById('midautumn-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let width, height;
+    function resize() {
+        width = canvas.width = container.clientWidth;
+        height = canvas.height = container.clientHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    setTimeout(() => {
+        container.classList.add('opened');
+    }, 300);
+
+    const stars = [];
+    for (let i = 0; i < 40; i++) {
+        stars.push({
+            x: Math.random() * width,
+            y: Math.random() * (height * 0.6),
+            radius: Math.random() * 1.5 + 0.5,
+            alpha: Math.random() * 0.7 + 0.2,
+            speed: Math.random() * 0.008 + 0.003
+        });
+    }
+
+    class Cloud {
+        constructor(x, y, scale, speed) {
+            this.x = x;
+            this.y = y;
+            this.scale = scale;
+            this.speed = speed;
+        }
+        update() {
+            this.x += this.speed;
+            if (this.x > width + 250 * this.scale) {
+                this.x = -250 * this.scale;
+            }
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.scale(this.scale, this.scale);
+            const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 100);
+            grad.addColorStop(0, 'rgba(160, 175, 200, 0.12)');
+            grad.addColorStop(0.5, 'rgba(130, 145, 170, 0.05)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(-40, 0, 60, 0, Math.PI * 2);
+            ctx.arc(20, -15, 50, 0, Math.PI * 2);
+            ctx.arc(50, 10, 45, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    const clouds = [
+        new Cloud(width * 0.1, height * 0.25, 1.2, 0.15),
+        new Cloud(width * 0.6, height * 0.18, 0.9, 0.1),
+        new Cloud(width * 0.85, height * 0.35, 1.5, 0.12)
+    ];
+
+    function drawInkLandscape() {
+        ctx.save();
+        
+        ctx.fillStyle = 'rgba(25, 35, 52, 0.55)';
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        ctx.lineTo(0, height * 0.72);
+        ctx.bezierCurveTo(width * 0.25, height * 0.62, width * 0.65, height * 0.78, width, height * 0.66);
+        ctx.lineTo(width, height);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(15, 22, 36, 0.82)';
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        ctx.lineTo(0, height * 0.8);
+        ctx.bezierCurveTo(width * 0.3, height * 0.72, width * 0.7, height * 0.86, width, height * 0.78);
+        ctx.lineTo(width, height);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#070a11';
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        ctx.lineTo(0, height * 0.88);
+        ctx.bezierCurveTo(width * 0.2, height * 0.85, width * 0.8, height * 0.92, width, height * 0.86);
+        ctx.lineTo(width, height);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = '#030508';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        let startX = width * 0.12;
+        let startY = height * 0.89;
+        ctx.moveTo(startX, startY);
+        ctx.quadraticCurveTo(startX - 15, startY - 90, startX - 60, startY - 160);
+        ctx.stroke();
+
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(startX - 45, startY - 120);
+        ctx.quadraticCurveTo(startX - 10, startY - 120, startX + 10, startY - 110);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    function drawMiddleScenery() {
+        ctx.save();
+        const centerX = width * 0.5;
+        const baseY = height * 0.82;
+
+        ctx.strokeStyle = 'rgba(180, 200, 220, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(width * 0.35, height * 0.76);
+        ctx.quadraticCurveTo(width * 0.37, height * 0.77, width * 0.39, height * 0.76);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(width * 0.37, height * 0.77);
+        ctx.lineTo(width * 0.37, height * 0.73);
+        ctx.stroke();
+
+        ctx.fillStyle = '#0a0e17';
+        ctx.fillRect(centerX + 180, baseY - 45, 90, 8);
+        ctx.fillRect(centerX + 195, baseY - 70, 6, 25);
+        ctx.fillRect(centerX + 255, baseY - 70, 6, 25);
+        ctx.beginPath();
+        ctx.moveTo(centerX + 180, baseY - 70);
+        ctx.lineTo(centerX + 225, baseY - 95);
+        ctx.lineTo(centerX + 270, baseY - 70);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(centerX - 10, height * 0.42);
+        
+        const centerGlow = ctx.createRadialGradient(0, 0, 10, 0, 0, 70);
+        centerGlow.addColorStop(0, 'rgba(212, 175, 55, 0.15)');
+        centerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = centerGlow;
+        ctx.beginPath();
+        ctx.arc(0, 0, 70, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(100, 120, 140, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-60, -30);
+        ctx.quadraticCurveTo(-20, -50, 40, -40);
+        ctx.moveTo(-10, -45);
+        ctx.quadraticCurveTo(30, -60, 60, -30);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(245, 230, 200, 0.45)';
+        for (let i = 0; i < 5; i++) {
+            let px = -30 + i * 18;
+            let py = -42 + Math.sin(i) * 8;
+            ctx.beginPath();
+            ctx.arc(px, py, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+        ctx.restore();
+    }
+
+    function getMoonCoords() {
+        return {
+            x: width * 0.78,
+            y: height * 0.28
+        };
+    }
+
+    function drawBackground() {
+        const grad = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, Math.max(width, height));
+        grad.addColorStop(0, '#121926');
+        grad.addColorStop(1, '#070a11');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.save();
+        stars.forEach(star => {
+            star.alpha += star.speed;
+            if (star.alpha > 0.9 || star.alpha < 0.2) star.speed = -star.speed;
+            ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.restore();
+
+        ctx.save();
+        const moon = getMoonCoords();
+        const moonRadius = Math.min(width, height) * 0.11;
+
+        const glow = ctx.createRadialGradient(moon.x, moon.y, moonRadius, moon.x, moon.y, moonRadius * 4.5);
+        glow.addColorStop(0, 'rgba(255, 240, 190, 0.18)');
+        glow.addColorStop(0.4, 'rgba(255, 220, 150, 0.05)');
+        glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(moon.x, moon.y, moonRadius * 4.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        const moonGrad = ctx.createRadialGradient(moon.x - moonRadius*0.3, moon.y - moonRadius*0.3, moonRadius*0.05, moon.x, moon.y, moonRadius);
+        moonGrad.addColorStop(0, '#fffff8');
+        moonGrad.addColorStop(0.65, '#f7e4bc');
+        moonGrad.addColorStop(1, '#dfbf7b');
+        ctx.fillStyle = moonGrad;
+        ctx.beginPath();
+        ctx.arc(moon.x, moon.y, moonRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        const shadowGrad = ctx.createRadialGradient(moon.x + moonRadius*0.3, moon.y + moonRadius*0.3, moonRadius*0.2, moon.x, moon.y, moonRadius);
+        shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        shadowGrad.addColorStop(0.9, 'rgba(80, 55, 20, 0.05)');
+        shadowGrad.addColorStop(1, 'rgba(50, 30, 10, 0.25)');
+        ctx.fillStyle = shadowGrad;
+        ctx.beginPath();
+        ctx.arc(moon.x, moon.y, moonRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.color = color;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 6.5 + 1.8;
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+            this.alpha = 1;
+            this.decay = Math.random() * 0.011 + 0.005;
+            this.size = Math.random() * 2.5 + 1;
+            this.drop = Math.random() * 0.15 + 0.03;
+        }
+        update() {
+            this.vx *= 0.97;
+            this.vy *= 0.97;
+            this.vy += this.drop;
+            this.x += this.vx;
+            this.y += this.vy;
+            this.alpha -= this.decay;
+        }
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, this.alpha);
+            ctx.fillStyle = this.color;
+            ctx.shadowBlur = 6;
+            ctx.shadowColor = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    class Firework {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.particles = [];
+            const colors = ['#ff5252', '#ffeb3b', '#ffffff', '#64ffda', '#e040fb', '#ff9e80', '#ffd54f'];
+            const baseColor = colors[Math.floor(Math.random() * colors.length)];
+            const count = Math.floor(Math.random() * 30) + 65;
+            
+            for (let i = 0; i < count; i++) {
+                this.particles.push(new Particle(this.x, this.y, baseColor));
+            }
+        }
+        update() {
+            this.particles.forEach(p => p.update());
+            this.particles = this.particles.filter(p => p.alpha > 0);
+        }
+        draw() {
+            this.particles.forEach(p => p.draw());
+        }
+        isDone() {
+            return this.particles.length === 0;
+        }
+    }
+
+    class MooncakeFly {
+        constructor(startX, startY) {
+            this.x = startX;
+            this.y = startY;
+            const moon = getMoonCoords();
+            const targetX = moon.x;
+            const targetY = moon.y;
+            
+            const dx = targetX - startX;
+            const dy = targetY - startY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            this.speed = 4.5;
+            this.vx = (dx / dist) * this.speed;
+            this.vy = (dy / dist) * this.speed;
+            
+            this.targetX = targetX;
+            this.targetY = targetY;
+            this.radius = 26;
+            this.alpha = 1;
+            this.rotation = 0;
+            this.rotSpeed = 0.02;
+        }
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.rotation += this.rotSpeed;
+
+            const dx = this.targetX - this.x;
+            const dy = this.targetY - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 30) {
+                this.alpha -= 0.05;
+            }
+        }
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, this.alpha);
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rotation);
+
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = 'rgba(212, 175, 55, 0.7)';
+
+            const grad = ctx.createRadialGradient(-4, -4, 2, 0, 0, this.radius);
+            grad.addColorStop(0, '#fff5cc');
+            grad.addColorStop(0.6, '#d4af37');
+            grad.addColorStop(1, '#8c6218');
+            ctx.fillStyle = grad;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(70, 40, 5, 0.45)';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius * 0.88, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius * 0.75, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            const petals = 8;
+            for (let i = 0; i < petals; i++) {
+                let angle = (i * 2 * Math.PI) / petals;
+                let x1 = Math.cos(angle) * (this.radius * 0.3);
+                let y1 = Math.sin(angle) * (this.radius * 0.3);
+                let x2 = Math.cos(angle) * (this.radius * 0.7);
+                let y2 = Math.sin(angle) * (this.radius * 0.7);
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(70, 40, 5, 0.55)';
+            ctx.font = '11px STKaiti, serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('团圆', 0, 0);
+
+            ctx.restore();
+        }
+        isDone() {
+            return this.alpha <= 0;
+        }
+    }
+
+    const blessingQuotes = [
+        "但愿人长久，千里共婵娟",
+        "月满西楼，岁岁常安，诸事皆圆",
+        "学业有成登金榜，桂香盈袖捷报传",
+        "事业鸿图展，鹏程万里顺",
+        "生活如满月，阖家享安康",
+        "此生此夜不长好，明月明年何处看",
+        "所求皆如愿，所行皆坦途",
+        "金秋送爽，硕果飘香，顺遂无虞",
+        "千里共明月，温情暖心间",
+        "岁安人长久，步步登高远"
+    ];
+
+    class BlessingText {
+        constructor(text, x, y) {
+            this.text = text;
+            this.x = x;
+            this.y = y;
+            this.alpha = 1;
+            this.vy = -0.8;
+            this.scale = 0.85;
+        }
+        update() {
+            this.y += this.vy;
+            this.alpha -= 0.008;
+            if (this.scale < 1) this.scale += 0.005;
+        }
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, this.alpha);
+            ctx.font = '16px "STKaiti", "KaiTi", serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(212, 175, 55, 0.8)';
+            ctx.fillStyle = '#f5ebd0';
+            ctx.fillText(this.text, this.x, this.y);
+            
+            ctx.restore();
+        }
+        isDone() {
+            return this.alpha <= 0;
+        }
+    }
+
+    let fireworks = [];
+    let mooncakes = [];
+    let blessingTexts = [];
+
+    function triggerAutoFireworks() {
+        const x = Math.random() * (width * 0.7) + width * 0.15;
+        const y = Math.random() * (height * 0.35) + height * 0.12;
+        fireworks.push(new Firework(x, y));
+    }
+
+    function initBurst() {
+        fireworks.push(new Firework(width * 0.35, height * 0.3));
+        fireworks.push(new Firework(width * 0.6, height * 0.25));
+    }
+
+    function animate() {
+        ctx.fillStyle = 'rgba(13, 18, 27, 0.28)';
+        ctx.fillRect(0, 0, width, height);
+
+        drawBackground();
+
+        clouds.forEach(cloud => {
+            cloud.update();
+            cloud.draw();
+        });
+
+        drawMiddleScenery();
+        drawInkLandscape();
+
+        fireworks.forEach((fw, index) => {
+            fw.update();
+            fw.draw();
+            if (fw.isDone()) {
+                fireworks.splice(index, 1);
+            }
+        });
+
+        mooncakes.forEach((mc, index) => {
+            mc.update();
+            mc.draw();
+            if (mc.isDone()) {
+                mooncakes.splice(index, 1);
+            }
+        });
+
+        blessingTexts.forEach((bt, index) => {
+            bt.update();
+            bt.draw();
+            if (bt.isDone()) {
+                blessingTexts.splice(index, 1);
+            }
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    setInterval(() => {
+        triggerAutoFireworks();
+    }, 2200);
+
+    window.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            const tip = document.getElementById('tip');
+            if (tip) tip.style.display = 'none';
+
+            if (Math.random() < 0.5) {
+                fireworks.push(new Firework(e.clientX, e.clientY));
+            } else {
+                mooncakes.push(new MooncakeFly(e.clientX, e.clientY));
+            }
+
+            const randomQuote = blessingQuotes[Math.floor(Math.random() * blessingQuotes.length)];
+            blessingTexts.push(new BlessingText(randomQuote, e.clientX, e.clientY - 20));
+        }
+    });
+
+    init();
+
+    function init() {
+        resize();
+        ctx.fillStyle = '#0d121b';
+        ctx.fillRect(0, 0, width, height);
+        
+        initBurst();
+        animate();
+    }
+})();
+</script>
